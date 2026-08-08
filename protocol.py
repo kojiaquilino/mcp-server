@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-from typing import Optional
-from typing import Dict
-from typing import Any
+from typing import Optional, Dict, Any
+import json
 
+
+## Data Models
 
 # data container for any protocol errors
 @dataclass
@@ -11,7 +12,7 @@ class JSONRPCError:
     message: str
     data: Optional[Any] = None
 
-    # to_dict function, omitting data if None
+    # to_dict function, omitting data if None -- serializes data into format for converting to JSON later
     def to_dict(self) -> Dict[str, Any]:
         error: Dict[str, Any] = {
             "code": self.code,
@@ -65,7 +66,7 @@ class JSONRPCNotification:
         return notification
 
 
-# data container to construct response back to mcp host
+# data container to construct response back to mcp host (only constructed by mcp server)
 @dataclass
 class JSONRPCResponse:
     id: Optional[str | int]
@@ -88,9 +89,43 @@ class JSONRPCResponse:
             "id": self.id
         }
 
-        if self.error:
+        if self.error is not None:
             response["error"] = self.error.to_dict()
         else:
             response["result"] = self.result
 
         return response
+
+
+
+# deserialize function that accepts incoming data from mcp host, parsing the json payload and deserializing it into Python objects (one of objects above)
+def parse_json(raw_json: str) -> JSONRPCRequest | JSONRPCNotification | JSONRPCError:
+    """
+        Parses and validates a raw JSON-RPC text string into a typed protocol object.
+    """
+    try:
+        payload = json.loads(raw_json)
+
+        if not isinstance(payload, dict):
+            return JSONRPCError(code=-32600, message="Invalid Request: Payload must be a JSON object")
+
+        if "jsonrpc" not in payload or payload["jsonrpc"] != "2.0":
+            return JSONRPCError(code=-32600, message="Invalid Request: Must be a JSON-RPC 2.0 object")
+        
+        if "method" not in payload or not isinstance(payload["method"], str):
+            return JSONRPCError(code=-32600, message="Invalid Request: Missing or malformed 'method'")
+
+        # Request if payload contains "id"
+        if "id" in payload:
+            return JSONRPCRequest(id=payload["id"],
+                                  method=payload["method"],
+                                  params=payload.get("params"), # returns None if does not exist
+                                  jsonrpc=payload["jsonrpc"])
+        # Notification otherwise  
+        else:
+            return JSONRPCNotification(method=payload["method"],
+                                       params=payload.get("params"),
+                                       jsonrpc=payload["jsonrpc"])
+
+    except json.JSONDecodeError:
+        return JSONRPCError(code=-32700, message="Parse error")
