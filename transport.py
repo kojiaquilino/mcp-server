@@ -1,5 +1,6 @@
 import asyncio
 import sys
+import json
 from typing import AsyncGenerator
 from logger import log_stderr
 
@@ -24,3 +25,10 @@ async def stdio_reader() -> AsyncGenerator[str, None]:
         request = line_bytes.decode("utf-8").strip()
         if request:
             yield request
+
+
+def send_message(message: dict):
+    "Writes raw line of bytes to sys.stdout."
+    line = json.dumps(message)              # convert to json string
+    sys.stdout.write(line + "\n")           # write to channel
+    sys.stdout.flush()                      # forces bytes to stdout channel
