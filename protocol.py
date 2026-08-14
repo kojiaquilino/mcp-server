@@ -100,9 +100,7 @@ class JSONRPCResponse:
 
 # deserialize function that accepts incoming data from mcp host, parsing the json payload and deserializing it into Python objects (one of objects above)
 def parse_json(raw_json: str) -> JSONRPCRequest | JSONRPCNotification | JSONRPCError:
-    """
-        Parses and validates a raw JSON-RPC text string into a typed protocol object.
-    """
+    "Parses and validates a raw JSON-RPC text string into a typed protocol object."
     try:
         payload = json.loads(raw_json)
 
